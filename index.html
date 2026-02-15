@@ -11,7 +11,15 @@
     <!-- Firebase Libraries (CDN Modules) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        
         import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  getDocs, 
+  serverTimestamp 
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Your specific Firebase configuration
         const firebaseConfig = {
@@ -26,7 +34,11 @@
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
+        const db = getFirestore(app);
+window.db = db;
         window.firebaseAuth = auth;
+
+    
 
         // Global state for Auth
         window.userState = null;
@@ -36,7 +48,8 @@
                 window.userState = {
                     email: user.email,
                     photo: user.photoURL || `https://ui-avatars.com/api/?name=${user.email || 'User'}&background=8e94f2&color=fff`,
-                };
+                    };
+                window.refreshLibraryState();
                 document.getElementById('login-btn-container').classList.add('hidden');
                 document.getElementById('logout-btn-container').classList.remove('hidden');
                 document.getElementById('profile-card').classList.remove('hidden');
@@ -490,8 +503,10 @@
             const navId = (view === 'study') ? 'nav-library' : `nav-${view}`;
             const navEl = document.getElementById(navId);
             if (navEl) navEl.classList.add('active');
+            if (view === 'library') {
+    window.refreshLibraryState();
+}
             
-            if (view === 'library') window.refreshLibraryState();
         }
 
         document.getElementById('cardCount').addEventListener('input', (e) => {
@@ -589,6 +604,19 @@
                     body: JSON.stringify(body)
                 });
                 window.flashcards = JSON.parse(data.candidates[0].content.parts[0].text);
+                // SAVE TO FIRESTORE
+const user = window.firebaseAuth.currentUser;
+
+if (user) {
+  await addDoc(
+    collection(window.db, "users", user.uid, "decks"),
+    {
+      title: "Active Study Deck",
+      cards: window.flashcards,
+      createdAt: serverTimestamp()
+    }
+  );
+}
                 
                 document.getElementById('lib-deck-count').innerText = `${window.flashcards.length} Cards`;
                 currentIndex = 0;
@@ -598,26 +626,43 @@
             finally { document.getElementById('loading-overlay').style.display = 'none'; }
         }
 
-        window.refreshLibraryState = function() {
-            const emptyLib = document.getElementById('library-empty');
-            const authPrompt = document.getElementById('library-auth-required');
-            const libContent = document.getElementById('library-content');
+        window.refreshLibraryState = async function () {
+    const emptyLib = document.getElementById('library-empty');
+    const authPrompt = document.getElementById('library-auth-required');
+    const libContent = document.getElementById('library-content');
 
-            if (!window.userState) {
-                emptyLib.classList.add('hidden');
-                libContent.classList.add('hidden');
-                authPrompt.classList.remove('hidden');
-            } else {
-                authPrompt.classList.add('hidden');
-                if (window.flashcards && window.flashcards.length > 0) {
-                    libContent.classList.remove('hidden');
-                    emptyLib.classList.add('hidden');
-                } else {
-                    emptyLib.classList.remove('hidden');
-                    libContent.classList.add('hidden');
-                }
-            }
-        }
+    const user = window.firebaseAuth.currentUser;
+
+    if (!user) {
+        emptyLib.classList.add('hidden');
+        libContent.classList.add('hidden');
+        authPrompt.classList.remove('hidden');
+        return;
+    }
+
+    authPrompt.classList.add('hidden');
+
+    const snapshot = await getDocs(
+        collection(window.db, "users", user.uid, "decks")
+    );
+
+    if (snapshot.empty) {
+        emptyLib.classList.remove('hidden');
+        libContent.classList.add('hidden');
+    } else {
+        emptyLib.classList.add('hidden');
+        libContent.classList.remove('hidden');
+
+        const doc = snapshot.docs[0];
+        const data = doc.data();
+
+        document.getElementById('lib-deck-title').innerText = data.title;
+        document.getElementById('lib-deck-count').innerText =
+            `${data.cards.length} Cards`;
+
+        window.flashcards = data.cards;
+    }
+};
 
         function updateCardUI() {
             const card = window.flashcards[currentIndex];
