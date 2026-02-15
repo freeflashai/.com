@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free Flash - Professional HD Studio</title>
+    
+    <!-- Professional Design Stack -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Outfit', sans-serif; background-color: #F8FAFC; margin: 0; padding: 0; overflow-x: hidden; }
+        
+        /* THEME: NEO-BRUTALIST SOFT HD */
+        .card-border { border: 3px solid #000; }
+        .neo-shadow { box-shadow: 8px 8px 0px 0px #000; }
+        .neo-shadow-sm { box-shadow: 4px 4px 0px 0px #000; }
+        
+        /* BOUNCY INTERACTIONS */
+        .bouncy-btn { transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+        .bouncy-btn:active { transform: scale(0.95) translate(1px, 1px); box-shadow: 2px 2px 0px 0px #000; }
+        .bouncy-btn:disabled { opacity: 0.15; cursor: not-allowed; }
+        
+        /* 3D FLIP SYSTEM */
+        .perspective-1200 { perspective: 1200px; }
+        .flip-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; min-height: 340px; }
+        .is-flipped { transform: rotateY(180deg); }
+        .face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; display: flex; align-items: center; justify-content: center; border-radius: 2rem; padding: 20px; }
+        .face-back { transform: rotateY(180deg); }
+
+        /* PATTERNS & EFFECTS */
+        .dot-grid { background-image: radial-gradient(#000 1px, transparent 1px); background-size: 15px 15px; opacity: 0.04; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .float-anim { animation: float 3s ease-in-out infinite; }
+        
+        /* SPLASH SCREEN */
+        .splash-screen { position: fixed; inset: 0; z-index: 9999; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .splash-fade-out { opacity: 0; pointer-events: none; transform: scale(1.05); transition: all 0.8s ease-in-out; }
+        
+        .center-all { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        #fatal-error { display: none; position: fixed; inset: 0; background: #fff; z-index: 10000; padding: 40px; color: #ef4444; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- Firebase Compat SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+    
+    <!-- React Dependencies -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const CONFIG = {
+            appName: "FREE FLASH",
+            splashDuration: 2200,
+            cardCounts: [10, 20, 30, 40, 50, 60, 70],
+            grads: [
+                "from-blue-600 to-indigo-800",
+                "from-pink-600 to-rose-800",
+                "from-amber-600 to-orange-800",
+                "from-emerald-600 to-teal-800",
+                "from-violet-600 to-purple-900",
+                "from-cyan-600 to-sky-800"
+            ]
+        };
+
+        // Integrated User Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyDq2eQF3ZMhXmCDZUVuyolh-fuIXF5lLRs",
+            authDomain: "free-flash-14603.firebaseapp.com",
+            projectId: "free-flash-14603",
+            storageBucket: "free-flash-14603.firebasestorage.app",
+            messagingSenderId: "405766477947",
+            appId: "1:405766477947:web:12eed4eca909e8eb9d2ade"
+        };
+
+        const apiKey = ""; // Gemini API Key injected by environment
+
+        // --- INTERNAL STABLE ICONS (Prevents Crashes) ---
+        const Icon = ({ name, size = 24, className = "" }) => {
+            const paths = {
+                brain: "M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-2.04ZM14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-2.04Z",
+                plus: "M12 5v14M5 12h14",
+                lib: "M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z M8 7h6M8 11h8M8 15h8",
+                spark: "m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z",
+                trash: "M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2",
+                left: "M15 18l-6-6 6-6",
+                right: "M9 18l6-6-6-6",
+                x: "M18 6 6 18M6 6l12 12",
+                user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+                zap: "M13 2 3 14h9l-1 8 10-12h-9l1-8z",
+                home: "m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
+                google: "M12.48 10.92v3.28h7.84c-.24 1.84-.908 3.152-1.928 4.176-1.228 1.216-3.144 2.568-6.752 2.568-5.408 0-9.696-4.384-9.696-9.8s4.288-9.8 9.696-9.8c3.032 0 5.256 1.184 6.84 2.68l2.256-2.256C18.42 1.344 15.6 0 12.064 0 5.512 0 0 5.512 0 12.064S5.512 24.128 12.064 24.128c3.552 0 6.224-1.168 8.352-3.376 2.192-2.192 2.888-5.264 2.888-7.856 0-.744-.064-1.448-.192-1.984h-10.624z"
+            };
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    <path d={paths[name] || ""} fill={name === 'google' ? 'currentColor' : (name === 'zap' || name === 'spark' ? 'currentColor' : 'none')} />
+                </svg>
+            );
+        };
+
+        const App = () => {
+            const [splash, setSplash] = useState({ active: true, fading: false });
+            const [view, setView] = useState('home');
+            const [user, setUser] = useState(null);
+            const [decks, setDecks] = useState([]);
+            const [activeDeck, setActiveDeck] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const [msg, setMsg] = useState(null);
+            const [profile, setProfile] = useState({ age: "", grade: "" });
+
+            useEffect(() => {
+                // Initialize Firebase with provided config
+                try {
+                    if (!firebase.apps.length) {
+                        firebase.initializeApp(firebaseConfig);
+                    }
+                    firebase.auth().onAuthStateChanged(u => setUser(u));
+                } catch(e) { console.error("Firebase Auth Init Failed", e); }
+                
+                const d = localStorage.getItem('ff_decks_integrated');
+                const p = localStorage.getItem('ff_profile_integrated');
+                if (d) setDecks(JSON.parse(d));
+                if (p) setProfile(JSON.parse(p));
+                
+                setTimeout(() => setSplash({ active: true, fading: true }), CONFIG.splashDuration - 600);
+                setTimeout(() => setSplash({ active: false, fading: false }), CONFIG.splashDuration);
+            }, []);
+
+            useEffect(() => {
+                localStorage.setItem('ff_decks_integrated', JSON.stringify(decks));
+                localStorage.setItem('ff_profile_integrated', JSON.stringify(profile));
+            }, [decks, profile]);
+
+            const notify = (text, type = 'info') => {
+                setMsg({ text, type });
+                setTimeout(() => setMsg(null), 3000);
+            };
+
+            const buildDeck = async (title, content, count) => {
+                if (!title) return notify("Enter a topic name!", "error");
+                setLoading(true);
+                const prompt = `Generate exactly ${count} educational cards for: ${title}. Content: ${content}. Output JSON: [{"question":"...","answer":"..."}]. Answers must be strictly 1 to 3 words only. Clear professional language.`;
+                try {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } })
+                    });
+                    const data = await res.json();
+                    const cards = JSON.parse(data.candidates[0].content.parts[0].text);
+                    const deck = { id: Math.random().toString(36).substr(2, 9), title, cards, date: new Date().toISOString() };
+                    setDecks([deck, ...decks]);
+                    setView('library');
+                    notify("Deck Built! ✨");
+                } catch (e) { notify("AI Busy. Try shorter text.", "error"); } finally { setLoading(false); }
+            };
+
+            if (splash.active) return (
+                <div className={`splash-screen ${splash.fading ? 'splash-fade-out' : ''}`}>
+                    <div className="relative animate-bounce">
+                        <div className="bg-yellow-400 p-8 rounded-[2.5rem] card-border neo-shadow">
+                            <Icon name="brain" size={80} />
+                        </div>
+                        <Icon name="zap" size={40} className="absolute -top-4 -right-4 text-blue-600 fill-blue-600" />
+                    </div>
+                    <h1 className="text-5xl font-black italic mt-10 uppercase tracking-tighter">{CONFIG.appName}</h1>
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen pb-20 animate-in fade-in duration-700">
+                    <nav className="sticky top-0 z-50 bg-white border-b-4 border-black px-4 py-3 flex justify-between items-center shadow-sm">
+                        <div onClick={() => setView('home')} className="flex items-center gap-2 cursor-pointer active:scale-90 transition-transform">
+                            <div className="bg-yellow-400 p-1 rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_#000]">
+                                <Icon name="brain" size={22} />
+                            </div>
+                            <span className="font-black italic uppercase text-lg tracking-tighter">FREE FLASH</span>
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={() => setView('create')} className="px-3 py-1.5 rounded-xl border-4 border-black bg-green-400 font-black text-[10px] shadow-[2px_2px_0px_0px_#000] bouncy-btn">NEW</button>
+                            <button onClick={() => setView('library')} className="px-3 py-1.5 rounded-xl border-4 border-black bg-blue-400 font-black text-[10px] shadow-[2px_2px_0px_0px_#000] bouncy-btn text-white">LIB</button>
+                            <button onClick={() => setView('profile')} className="w-10 h-10 border-4 border-black rounded-xl bg-white bouncy-btn shadow-[2px_2px_0px_0px_#000] overflow-hidden">
+                                {user?.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <Icon name="user" size={20}/>}
+                            </button>
+                        </div>
+                    </nav>
+
+                    <div className="max-w-xl mx-auto p-4">
+                        {msg && (
+                            <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-2xl border-4 border-black z-[100] font-black shadow-[4px_4px_0px_0px_#000] text-sm animate-in slide-in-from-bottom-4 ${msg.type==='error'?'bg-red-400 text-white':'bg-green-400 text-black'}`}>
+                                {msg.text}
+                            </div>
+                        )}
+                        {view === 'home' && <HomeView setView={setView} decks={decks} setActiveDeck={setActiveDeck} />}
+                        {view === 'create' && <CreateView buildDeck={buildDeck} loading={loading} setView={setView} notify={notify} />}
+                        {view === 'library' && <LibraryView setView={setView} decks={decks} setActiveDeck={setActiveDeck} setDecks={setDecks} notify={notify} />}
+                        {view === 'study' && <StudyView setView={setView} deck={activeDeck} />}
+                        {view === 'profile' && <ProfileView user={user} profile={profile} setProfile={setProfile} notify={notify} />}
+                    </div>
+                </div>
+            );
+        };
+
+        const HomeView = ({ setView, decks, setActiveDeck }) => (
+            <div className="py-10 text-center center-all">
+                <div className="mb-10 float-anim bg-yellow-300 p-10 rounded-[3rem] card-border neo-shadow inline-block rotate-3">
+                    <Icon name="spark" size={64} className="text-white" />
+                </div>
+                <h1 className="text-5xl sm:text-7xl font-black italic uppercase leading-none tracking-tighter">
+                    STUDIO <br/> <span className="text-blue-600 underline decoration-black decoration-8 underline-offset-4 italic uppercase tracking-tighter">FREE FLASH</span>
+                </h1>
+                <p className="text-slate-500 font-bold mt-8 max-w-[280px]">Concise AI Flashcards in HD</p>
+                <div className="flex gap-4 mt-12 w-full px-4 max-w-sm">
+                    <button onClick={() => setView('create')} className="flex-1 bg-green-400 card-border py-5 rounded-[1.5rem] font-black uppercase italic bouncy-btn neo-shadow text-xl shadow-[8px_8px_0px_0px_#000]">Create</button>
+                    <button onClick={() => setView('library')} className="flex-1 bg-white card-border py-5 rounded-[1.5rem] font-black uppercase italic bouncy-btn neo-shadow text-xl text-black shadow-[8px_8px_0px_0px_#000]">Library</button>
+                </div>
+                {decks.length > 0 && (
+                    <div className="mt-16 w-full text-left">
+                        <h2 className="text-xl font-black uppercase italic mb-6 flex items-center gap-3 text-black"><Icon name="zap" size={24} className="text-yellow-500" /> RECENT SESSION</h2>
+                        {decks.slice(0,2).map(d => (
+                            <div key={d.id} className="bg-white p-6 rounded-[2rem] card-border shadow-[5px_5px_0px_0px_#000] flex justify-between items-center mb-4 active:bg-yellow-50 transition-colors">
+                                <span className="font-black truncate uppercase text-sm pr-4">{d.title}</span>
+                                <button onClick={() => { setActiveDeck(d); setView('study'); }} className="p-3 bg-blue-500 text-white rounded-xl border-2 border-black bouncy-btn flex-shrink-0">
+                                    <Icon name="right" size={20} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+
+        const CreateView = ({ buildDeck, loading, setView, notify }) => {
+            const [title, setTitle] = useState("");
+            const [text, setText] = useState("");
+            const [source, setSource] = useState('text');
+            const [count, setCount] = useState(10);
+            const fRef = useRef();
+
+            return (
+                <div className="space-y-8 animate-in slide-in-from-right duration-500">
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => setView('home')} className="p-2.5 bg-white border-4 border-black rounded-2xl bouncy-btn"><Icon name="left" size={20}/></button>
+                        <h2 className="text-3xl font-black uppercase italic tracking-tighter">NEW PROJECT</h2>
+                    </div>
+                    <div className="bg-white p-8 rounded-[3.5rem] card-border neo-shadow relative overflow-hidden">
+                        {loading && (
+                            <div className="absolute inset-0 bg-white/95 z-20 center-all">
+                                <div className="w-14 h-14 border-8 border-black border-t-blue-600 rounded-full animate-spin mb-4"></div>
+                                <p className="font-black italic uppercase text-xl">AI SCANNING...</p>
+                            </div>
+                        )}
+                        <div className="space-y-6">
+                            <input type="text" placeholder="Topic Name..." className="w-full p-5 card-border rounded-2xl font-black focus:bg-slate-50 outline-none text-xl text-center shadow-[4px_4px_0px_0px_#000] uppercase" value={title} onChange={e=>setTitle(e.target.value)} />
+                            <div className="flex gap-2 p-1.5 bg-slate-100 rounded-[2rem] border-4 border-black">
+                                <button onClick={()=>setSource('text')} className={`flex-1 py-4 rounded-2xl font-black uppercase text-xs transition-all ${source==='text' ? 'bg-pink-500 border-2 border-black text-white shadow-[4px_4px_0px_0px_#000]' : 'text-slate-400'}`}>TEXT</button>
+                                <button onClick={()=>{fRef.current.click()}} className={`flex-1 py-4 rounded-2xl font-black uppercase text-xs transition-all ${source!=='text' ? 'bg-pink-500 border-2 border-black text-white shadow-[4px_4px_0px_0px_#000]' : 'text-slate-400'}`}>SCAN FILE</button>
+                                <input type="file" ref={fRef} className="hidden" onChange={(e) => { if(e.target.files[0]) { setText(`Extracted Content from ${e.target.files[0].name}`); notify("Attached!"); } }} />
+                            </div>
+                            <textarea placeholder="PASTE DATA HERE..." rows="5" className="w-full p-6 card-border rounded-3xl font-bold text-center text-sm outline-none resize-none bg-slate-50 focus:bg-white" value={text} onChange={e=>setText(e.target.value)}></textarea>
+                            <div className="grid grid-cols-2 gap-6">
+                                <select className="p-5 card-border rounded-2xl bg-white font-black text-sm appearance-none text-center shadow-[4px_4px_0px_0px_#000]" value={count} onChange={e=>setCount(Number(e.target.value))}>
+                                    {CONFIG.cardCounts.map(c => <option key={c} value={c}>{c} CARDS</option>)}
+                                </select>
+                                <button onClick={() => buildDeck(title, text, count)} className="bg-blue-600 text-white card-border py-5 rounded-2xl font-black uppercase italic bouncy-btn text-xl shadow-[5px_5px_0px_0px_#000]">BUILD</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const LibraryView = ({ setView, decks, setActiveDeck, setDecks, notify }) => (
+            <div className="space-y-8 animate-in slide-in-from-left duration-500">
+                <div className="flex justify-between items-end">
+                    <h2 className="text-5xl font-black uppercase italic tracking-tighter">SHELF</h2>
+                    <button onClick={() => setView('create')} className="p-6 bg-yellow-400 card-border rounded-2xl shadow-[6px_6px_0px_0px_#000] bouncy-btn"><Icon name="plus" size={32} /></button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {decks.map(d => (
+                        <div key={d.id} className="bg-white p-8 rounded-[3rem] card-border neo-shadow flex flex-col hover:translate-y-[-8px] transition-all">
+                            <h3 className="text-2xl font-black uppercase italic truncate text-center mb-1">{d.title}</h3>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">{d.cards.length} Cards</p>
+                            <div className="flex gap-4 mt-10">
+                                <button onClick={()=>{setActiveDeck(d); setView('study');}} className="flex-1 bg-black text-white py-4 rounded-xl font-black uppercase text-xs bouncy-btn border-2 border-black">Study</button>
+                                <button onClick={()=>{if(confirm('Delete this deck?')) { setDecks(decks.filter(x=>x.id!==d.id)); notify("Deleted", "error"); }}} className="p-5 card-border rounded-xl text-red-500 bouncy-btn"><Icon name="trash" size={24}/></button>
+                            </div>
+                        </div>
+                    ))}
+                    {decks.length === 0 && <div className="col-span-full py-24 text-center opacity-20"><p className="text-slate-300 font-black italic uppercase text-3xl">Shelf is Empty</p></div>}
+                </div>
+            </div>
+        );
+
+        const StudyView = ({ setView, deck }) => {
+            const [idx, setIdx] = useState(0);
+            const [flipped, setFlipped] = useState(false);
+            const [finish, setFinish] = useState(false);
+            
+            useEffect(() => { setFlipped(false); }, [idx]);
+            if (!deck) return null;
+            const current = deck.cards[idx];
+            const grad = CONFIG.grads[idx % CONFIG.grads.length];
+
+            const handleNext = () => {
+                if (idx < deck.cards.length - 1) setIdx(idx + 1);
+                else setFinish(true);
+            };
+
+            if (finish) return (
+                <div className="fixed inset-0 z-[500] bg-white center-all p-10 animate-in fade-in zoom-in-95 duration-700">
+                    <div className="bg-green-400 p-12 rounded-[5rem] card-border neo-shadow text-center max-w-sm rotate-1">
+                        <div className="bg-white w-24 h-24 rounded-3xl card-border mx-auto mb-8 center-all float-anim shadow-lg">
+                            <Icon name="spark" size={48} className="text-yellow-500" />
+                        </div>
+                        <h3 className="text-6xl font-black italic uppercase tracking-tighter text-white mb-4 underline decoration-black">FINISH!</h3>
+                        <button onClick={()=>setView('home')} className="w-full py-6 bg-white card-border rounded-[2rem] font-black uppercase italic bouncy-btn text-xl shadow-[6px_6px_0px_0px_#000] flex items-center justify-center gap-3 text-black">
+                            <Icon name="home" size={28} /> HOME BASE
+                        </button>
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="space-y-10 py-4 animate-in fade-in duration-500">
+                    <div className="flex items-center justify-between mb-2">
+                        <button onClick={() => setView('library')} className="p-3 bg-white card-border rounded-xl bouncy-btn shadow-[2px_2px_0px_0px_#000]"><Icon name="x" size={20}/></button>
+                        <div className="flex-1 px-8">
+                            <div className="w-full bg-slate-200 h-5 rounded-full card-border overflow-hidden shadow-inner">
+                                <div className="bg-green-400 h-full transition-all duration-1000 border-r-4 border-black" style={{width: `${((idx+1)/deck.cards.length)*100}%`}}></div>
+                            </div>
+                        </div>
+                        <span className="font-black text-sm italic pr-2">{idx+1}/{deck.cards.length}</span>
+                    </div>
+                    
+                    {/* PROFESSIONAL COMPACT CARD (AUTO-FITTING TEXT) */}
+                    <div className="relative w-full cursor-pointer perspective-1200" onClick={() => setFlipped(!flipped)}>
+                        <div className={`flip-card-inner ${flipped ? 'is-flipped' : ''}`}>
+                            {/* FRONT SIDE */}
+                            <div className="face absolute inset-0 bg-white card-border neo-shadow flex-col overflow-hidden">
+                                <div className={`absolute inset-0 bg-gradient-to-br ${grad} opacity-15`}></div>
+                                <div className="absolute inset-0 dot-grid"></div>
+                                
+                                <div className="relative z-10 bg-black text-white px-5 py-1.5 rounded-full mb-8 font-black uppercase text-[10px] tracking-[0.2em] shadow-lg flex items-center gap-2">
+                                    <Icon name="zap" size={12} className="text-yellow-400" /> QUESTION
+                                </div>
+                                
+                                <div className="relative z-10 w-full px-4 text-center center-all no-scrollbar overflow-y-auto max-h-full">
+                                    <h2 className="text-xl sm:text-2xl font-bold uppercase leading-tight text-slate-900 tracking-tight">{current.question}</h2>
+                                </div>
+                                
+                                <div className="mt-8 bg-slate-100 px-4 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest text-slate-400 border border-slate-200">
+                                    [ TAP TO REVEAL ]
+                                </div>
+                            </div>
+
+                            {/* BACK SIDE (Strict Spoil-Proof) */}
+                            <div className="face-back face absolute inset-0 bg-slate-900 text-white card-border neo-shadow flex-col overflow-hidden">
+                                <div className={`absolute inset-0 bg-gradient-to-tr ${grad} opacity-80`}></div>
+                                <div className="absolute inset-0 bg-black/40"></div>
+                                
+                                <div className="relative z-10 bg-white/20 px-5 py-1.5 rounded-full mb-8 font-black uppercase text-[9px] tracking-[0.2em] border border-white/30 backdrop-blur-sm">
+                                    ANSWER
+                                </div>
+                                
+                                <div className="relative z-10 w-full px-4 text-center center-all no-scrollbar overflow-y-auto max-h-full">
+                                    <h2 className="text-2xl sm:text-4xl font-bold uppercase leading-tight">
+                                        {flipped ? current.answer : ""}
+                                    </h2>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* PROFESSIONAL CONTROLS */}
+                    <div className="flex gap-4 h-24 px-1">
+                        <button disabled={idx===0} onClick={()=>setIdx(idx-1)} className="p-7 bg-white card-border rounded-[2.5rem] shadow-[6px_6px_0px_0px_#000] bouncy-btn flex-shrink-0 active:translate-y-0"><Icon name="left" size={32}/></button>
+                        <button onClick={()=>setFlipped(!flipped)} className="flex-1 bg-white card-border rounded-[2.5rem] font-black uppercase italic shadow-[6px_6px_0px_0px_#000] bouncy-btn text-xl tracking-tighter active:translate-y-0">Flip it!</button>
+                        <button onClick={handleNext} className="p-7 bg-white card-border rounded-[2.5rem] shadow-[6px_6px_0px_0px_#000] bouncy-btn flex-shrink-0 active:translate-y-0"><Icon name="right" size={32}/></button>
+                    </div>
+                </div>
+            );
+        };
+
+        const ProfileView = ({ user, profile, setProfile, notify }) => {
+            const login = () => {
+                const p = new firebase.auth.GoogleAuthProvider();
+                firebase.auth().signInWithPopup(p).then(()=>notify("Logged In! ✨")).catch(()=>notify("Login Error","error"));
+            };
+            return (
+                <div className="max-w-md mx-auto animate-in zoom-in-95 duration-500">
+                    <div className="bg-white p-10 rounded-[4rem] card-border shadow-[10px_10px_0px_0px_#000] text-center">
+                        <div className="w-32 h-32 bg-yellow-400 card-border rounded-3xl flex items-center justify-center rotate-6 shadow-xl overflow-hidden mx-auto mb-10">
+                            {user?.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <Icon name="user" size={60} />}
+                        </div>
+                        
+                        {!user ? (
+                            <button onClick={login} className="w-full py-5 bg-white card-border rounded-3xl font-black uppercase text-sm shadow-[6px_6px_0px_0px_#000] bouncy-btn italic tracking-widest flex items-center justify-center gap-3">
+                                <div className="bg-white p-1 rounded-full border border-black flex items-center justify-center">
+                                    <Icon name="google" size={18} className="text-black" />
+                                </div>
+                                GOOGLE LOGIN
+                            </button>
+                        ) : (
+                            <div className="space-y-6 text-left font-black">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] text-slate-400 uppercase ml-2 tracking-widest uppercase">Full Name</label>
+                                    <p className="p-4 bg-slate-50 border-4 border-black rounded-2xl italic uppercase truncate">{user.displayName}</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] text-slate-400 uppercase ml-2 tracking-widest uppercase">Age</label>
+                                        <input type="number" placeholder="?" className="w-full p-4 bg-white border-4 border-black rounded-2xl outline-none" value={profile.age} onChange={e=>setProfile({...profile, age:e.target.value})} />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] text-slate-400 uppercase ml-2 tracking-widest uppercase">Class</label>
+                                        <input type="text" placeholder="?" className="w-full p-4 bg-white border-4 border-black rounded-2xl outline-none" value={profile.grade} onChange={e=>setProfile({...profile, grade:e.target.value})} />
+                                    </div>
+                                </div>
+                                <button onClick={()=>firebase.auth().signOut()} className="w-full py-3 bg-red-100 text-red-600 border-2 border-red-500 rounded-xl font-black uppercase text-[10px] tracking-widest mt-4 text-center">Log Out</button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
