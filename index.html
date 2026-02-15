@@ -252,12 +252,13 @@
 </head>
 <body id="app-body">
 
-    <div id="loading-overlay" class="flex flex-col items-center justify-center">
+    <div id="loading-overlay"
+     class="fixed inset-0 flex flex-col items-center justify-center bg-black z-50">
         <span class="loader mb-4"></span>
         <p class="font-bold animate-pulse" style="color: var(--accent)">Processing your knowledge...</p>
     </div>
 
-    <div class="max-w-4xl mx-auto px-4 h-full flex flex-col">
+    <div class="max-w-md mx-auto px-4 pt-4 pb-24 flex flex-col min-h-screen">
         
         <!-- Create Section -->
         <section id="view-create" class="page-transition flex-1 flex flex-col justify-center py-4">
